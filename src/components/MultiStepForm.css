@@ -1,0 +1,41 @@
+.multi-step-form {
+  max-width: 800px;
+  margin: 2rem auto;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+}
+
+.tab-header {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.tab-header button {
+  flex: 1;
+  padding: 10px 15px;
+  border: none;
+  background-color: #f0f0f0;
+  cursor: pointer;
+  font-weight: bold;
+  border-radius: 4px;
+  transition: background-color 0.3s ease;
+}
+
+.tab-header button.active {
+  background-color: #61dafb;
+  color: black;
+  font-weight: bold;
+}
+
+.tab-header button:disabled {
+  background-color: #e9ecef;
+  color: #868e96;
+  cursor: not-allowed;
+}
+
+.tab-content {
+  overflow: hidden;
+}
