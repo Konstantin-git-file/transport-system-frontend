@@ -4,36 +4,31 @@ import './TicketFormTab.css';
 
 const TicketFormTab = ({ userId, onLoginSuccess }) => {
   const [ticket, setTicket] = useState({
+    departureCity: '',
     departureId: '',
+    destinationCity: '',
     destinationId: ''
   });
 
-  const [loginData, setLoginData] = useState({
-    login: '',
-    password: ''
-  });
-
+  const [loginData, setLoginData] = useState({ login: '', password: '' });
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+
   const [currentLocations, setCurrentLocations] = useState([]);
   const [destinations, setDestinations] = useState([]);
 
   useEffect(() => {
     axios.get('/api/current-locations')
-      .then(response => {
-        setCurrentLocations(response.data);
-      })
-      .catch(error => {
-        console.error('Ошибка при загрузке станций отправления:', error);
+      .then(res => setCurrentLocations(res.data))
+      .catch(err => {
+        console.error(err);
         setMessage('Не удалось загрузить станции отправления');
       });
 
     axios.get('/api/destinations')
-      .then(response => {
-        setDestinations(response.data);
-      })
-      .catch(error => {
-        console.error('Ошибка при загрузке пунктов назначения:', error);
+      .then(res => setDestinations(res.data))
+      .catch(err => {
+        console.error(err);
         setMessage('Не удалось загрузить пункты назначения');
       });
   }, []);
@@ -44,159 +39,140 @@ const TicketFormTab = ({ userId, onLoginSuccess }) => {
     setMessage('');
 
     axios.post('/api/users/login', loginData)
-      .then(response => {
-        if (response.status === 200 && response.data.userId) {
-          onLoginSuccess(response.data.userId);
+      .then(res => {
+        if (res.status === 200 && res.data.userId) {
+          onLoginSuccess(res.data.userId);
           setMessage('Вы успешно вошли');
         }
       })
-      .catch(error => {
-        if (error.response?.status === 401) {
-          setMessage('Неверный логин или пароль');
-        } else {
-          setMessage('Ошибка при входе в систему');
-        }
-        console.error('Ошибка входа:', error);
+      .catch(err => {
+        setMessage(err.response?.status === 401 ? 'Неверный логин или пароль' : 'Ошибка при входе');
       })
-      .finally(() => {
-        setLoading(false);
-      });
+      .finally(() => setLoading(false));
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const { departureId, destinationId } = ticket;
+    const dep = currentLocations.find(loc => loc.id === parseInt(departureId));
+    const dest = destinations.find(d => d.id === parseInt(destinationId));
 
-    if (!ticket.departureId || !ticket.destinationId) {
-      setMessage('Выберите станцию отправления и пункт назначения');
+    if (!dep || !dest) {
+      setMessage('Выбранные локации недействительны');
       return;
     }
 
-    const data = {
-      userId: parseInt(userId),
-      locationId: parseInt(ticket.departureId), // Изменили на locationId
-      destinationId: parseInt(ticket.destinationId) // Оставили destinationId
-    };
+    if (dep.city === dest.city && dep.station === dest.station) {
+      setMessage('Станции отправления и назначения не могут совпадать');
+      return;
+    }
 
-    axios.post('/api/tickets', data)
-      .then(response => {
-        setMessage(`Билет успешно создан с ID: ${response.data.id}`);
-        setTicket({ departureId: '', destinationId: '' });
+    axios.post('/api/tickets', {
+      userId: parseInt(userId),
+      currentLocationId: dep.id,
+      destinationId: dest.id,
+      fromCity: dep.city,
+      fromStation: dep.station,
+      toCity: dest.city,
+      toStation: dest.station
+    })
+      .then(res => {
+        setMessage(`Билет успешно создан с ID: ${res.data.id}`);
+        setTicket({ departureCity: '', departureId: '', destinationCity: '', destinationId: '' });
       })
-      .catch(error => {
-        console.error('Ошибка при создании билета:', error);
-        if (error.response?.data) {
-          setMessage('Ошибка: ' + JSON.stringify(error.response.data));
-        } else {
-          setMessage('Ошибка при создании билета');
-        }
+      .catch(err => {
+        setMessage(err.response?.data ? 'Ошибка: ' + JSON.stringify(err.response.data) : 'Ошибка при создании билета');
       });
   };
 
   const handleInputChange = (e) => {
-    setTicket({
-      ...ticket,
-      [e.target.name]: e.target.value
-    });
+    const { name, value } = e.target;
+    setTicket({ ...ticket, [name]: value, ...(name.includes('City') ? { [`${name.replace('City', '')}Id`]: '' } : {}) });
   };
 
   const handleLoginChange = (e) => {
-    setLoginData({
-      ...loginData,
-      [e.target.name]: e.target.value
-    });
+    setLoginData({ ...loginData, [e.target.name]: e.target.value });
   };
+
+  const getFilteredStations = (list, city) => list.filter(item => item.city === city);
 
   return (
     <div className="form-card">
       <h2>Создание билета</h2>
 
-      {!userId && (
-        <div className="auth-section">
-          <p className="warning-box">
-            Билет можно оформить только после регистрации пользователя или войдите в систему
-          </p>
-
-          <form onSubmit={handleLogin} className="login-form">
-            <h3>Войти в систему</h3>
-
-            <div className="form-group">
-              <label>
-                Логин<span className="required">*</span>:
-                <input
-                  type="text"
-                  name="login"
-                  value={loginData.login}
-                  onChange={handleLoginChange}
-                  placeholder="Введите логин"
-                  required
-                />
-              </label>
-            </div>
-
-            <div className="form-group">
-              <label>
-                Пароль<span className="required">*</span>:
-                <input
-                  type="password"
-                  name="password"
-                  value={loginData.password}
-                  onChange={handleLoginChange}
-                  placeholder="Введите пароль"
-                  required
-                />
-              </label>
-            </div>
-
-            <button type="submit" disabled={loading} className="submit-button">
-              {loading ? 'Вход...' : 'Войти'}
-            </button>
-
-            {message && <p className="form-message">{message}</p>}
-          </form>
-        </div>
-      )}
-
-      {userId && (
+      {!userId ? (
+        <form onSubmit={handleLogin} className="login-form">
+          <h3>Войти в систему</h3>
+          <div className="form-group">
+            <label>
+              Логин<span className="required">*</span>:
+              <input type="text" name="login" value={loginData.login} onChange={handleLoginChange} required />
+            </label>
+          </div>
+          <div className="form-group">
+            <label>
+              Пароль<span className="required">*</span>:
+              <input type="password" name="password" value={loginData.password} onChange={handleLoginChange} required />
+            </label>
+          </div>
+          <button type="submit" disabled={loading} className="submit-button">{loading ? 'Вход...' : 'Войти'}</button>
+          {message && <p className="form-message">{message}</p>}
+        </form>
+      ) : (
         <form onSubmit={handleSubmit} className="ticket-form">
           <p><strong>ID пользователя:</strong> {userId}</p>
 
           <div className="form-group">
             <label>
-              Станция отправления<span className="required">*</span>:
-              <select
-                name="departureId"
-                value={ticket.departureId}
-                onChange={handleInputChange}
-                required
-              >
-                <option value="">Выберите станцию отправления</option>
-                {currentLocations.map(location => (
-                  <option key={location.id} value={location.id}>
-                    {location.stationName} ({location.city})
-                  </option>
+              Город отправления<span className="required">*</span>:
+              <select name="departureCity" value={ticket.departureCity} onChange={handleInputChange} required>
+                <option value="">Выберите город</option>
+                {[...new Set(currentLocations.map(loc => loc.city))].map(city => (
+                  <option key={city} value={city}>{city}</option>
                 ))}
               </select>
             </label>
           </div>
 
+          {ticket.departureCity && (
+            <div className="form-group">
+              <label>
+                Станция отправления<span className="required">*</span>:
+                <select name="departureId" value={ticket.departureId} onChange={handleInputChange} required>
+                  <option value="">Выберите станцию</option>
+                  {getFilteredStations(currentLocations, ticket.departureCity).map(loc => (
+                    <option key={loc.id} value={loc.id}>{loc.station} ({loc.city})</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          )}
+
           <div className="form-group">
             <label>
-              Пункт назначения<span className="required">*</span>:
-              <select
-                name="destinationId"
-                value={ticket.destinationId}
-                onChange={handleInputChange}
-                required
-              >
-                <option value="">Выберите пункт назначения</option>
-                {destinations.map(destination => (
-                  <option key={destination.id} value={destination.id}>
-                    {destination.stationName} ({destination.city})
-                  </option>
+              Город назначения<span className="required">*</span>:
+              <select name="destinationCity" value={ticket.destinationCity} onChange={handleInputChange} required>
+                <option value="">Выберите город</option>
+                {[...new Set(destinations.map(dest => dest.city))].map(city => (
+                  <option key={city} value={city}>{city}</option>
                 ))}
               </select>
             </label>
           </div>
+
+          {ticket.destinationCity && (
+            <div className="form-group">
+              <label>
+                Пункт назначения<span className="required">*</span>:
+                <select name="destinationId" value={ticket.destinationId} onChange={handleInputChange} required>
+                  <option value="">Выберите станцию</option>
+                  {getFilteredStations(destinations, ticket.destinationCity).map(dest => (
+                    <option key={dest.id} value={dest.id}>{dest.station} ({dest.city})</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          )}
 
           <button type="submit" className="submit-button">Создать билет</button>
           {message && <p className="form-message">{message}</p>}

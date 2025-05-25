@@ -56,7 +56,8 @@ const UserFormTab = ({ setUserId }) => {
           number: '',
           gender: '',
           login: '',
-          password: ''
+          password: '',
+          email: ''
         });
       })
       .catch(error => {
@@ -172,6 +173,20 @@ const UserFormTab = ({ setUserId }) => {
               value={user.password}
               onChange={handleChange}
               placeholder="Введите пароль"
+              required
+            />
+          </label>
+        </div>
+
+        <div className="form-group">
+          <label>
+            Email<span className="required">*</span>:
+            <input
+              type="email"
+              name="email"
+              value={user.email}
+              onChange={handleChange}
+              placeholder="Введите email"
               required
             />
           </label>
